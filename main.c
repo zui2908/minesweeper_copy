@@ -22,7 +22,7 @@
 #define FLAG_COUNT 0x0F
 
 //Reset button
-#define RESET 10
+#define RESET 9999
 
 //HANDLES
 HBITMAP images[16];

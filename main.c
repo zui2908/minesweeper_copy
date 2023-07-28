@@ -94,6 +94,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         }
         case WM_DESTROY: {
+            FreeConsole();
             PostQuitMessage(0);
             break;
         }
@@ -147,8 +148,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
-    HWND console = GetConsoleWindow();
-    ShowWindow(console, SW_HIDE);
+    FreeConsole();
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);

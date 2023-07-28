@@ -11,8 +11,6 @@
 //GRID
 #define GRID_WIDTH 30
 #define GRID_HEIGHT 16
-#define GRID_OFFSET_X 0
-#define GRID_OFFSET_Y
 
 //GUI
 #define CELL_SIZE 30
@@ -23,9 +21,13 @@
 #define FLAG_MINE 0x20
 #define FLAG_COUNT 0x0F
 
+//Reset button
+#define RESET 10
+
 //HANDLES
-HBITMAP images[13];
+HBITMAP images[16];
 HMENU hMenu;
+HWND ResetButton;
 byte cells[GRID_WIDTH*GRID_HEIGHT];
 int currentMode, unOpenCell;
 int mines[99];
@@ -64,6 +66,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 }
                 case MENU_GAME_30X16: {
                     SetMode(hwnd,wParam);
+                    break;
+                }
+                case RESET: {
+                    SetMode(hwnd,currentMode);
                     break;
                 }
             }
@@ -177,10 +183,12 @@ void AddControls(HWND hwnd) {
     for (WPARAM i = 0; i < GRID_HEIGHT; i++) {
         for (WPARAM j = 0; j < GRID_WIDTH; j++) {
             WPARAM id = i*GRID_WIDTH + j;
-            HWND handle = CreateWindowW(L"static", NULL, WS_VISIBLE | WS_CHILD | SS_BITMAP, CELL_SIZE*j, CELL_SIZE*i, CELL_SIZE, CELL_SIZE, hwnd, (HMENU)id, NULL, NULL);
+            HWND handle = CreateWindowW(L"static", NULL, WS_VISIBLE | WS_CHILD | SS_BITMAP, CELL_SIZE*j, 80 + CELL_SIZE*i, CELL_SIZE, CELL_SIZE, hwnd, (HMENU)id, NULL, NULL);
             SendMessageW(handle, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[11]);
         }
     }
+    ResetButton = CreateWindowW(L"button", NULL, WS_VISIBLE | WS_CHILD | BS_BITMAP, 20, 20, 60, 60, hwnd, (HMENU)RESET, NULL, NULL);
+    SendMessageW(ResetButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[13]);
 }
 
 void SetMode(HWND hwnd, WPARAM mode) {
@@ -220,9 +228,11 @@ void SetMode(HWND hwnd, WPARAM mode) {
         }
         //
     }
-    RECT wr = {0,0, width*CELL_SIZE,height*CELL_SIZE};
+    RECT wr = {0,0, width*CELL_SIZE,height*CELL_SIZE + 80};
     AdjustWindowRect(&wr, WS_MINIMIZEBOX | WS_SYSMENU, TRUE);
     SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, wr.right - wr.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXEDGE) , wr.bottom - wr.top + GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYCAPTION), SWP_NOMOVE | SWP_SHOWWINDOW);
+    SetWindowPos(ResetButton, HWND_TOP, (wr.right - wr.left)/2 - 30, 10, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+    SendMessageW(ResetButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[13]);
 }
 
 void LoadImages() {
@@ -239,6 +249,9 @@ void LoadImages() {
     images[10] = (HBITMAP)LoadImageW(NULL, L"bitmaps/flag.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
     images[11] = (HBITMAP)LoadImageW(NULL, L"bitmaps/close.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
     images[12] = (HBITMAP)LoadImageW(NULL, L"bitmaps/redmine.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
+    images[13] = (HBITMAP)LoadImageW(NULL, L"bitmaps/default.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
+    images[14] = (HBITMAP)LoadImageW(NULL, L"bitmaps/win.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
+    images[15] = (HBITMAP)LoadImageW(NULL, L"bitmaps/lose.bmp", IMAGE_BITMAP, CELL_SIZE, CELL_SIZE, LR_LOADFROMFILE);
 }
 
 int ArrayContains(int a[], int array_count,int n) {
@@ -268,9 +281,13 @@ void OnRightClick(HWND hwnd, LPARAM lParam) {
     if (playing) {
         int xPos = GET_X_LPARAM(lParam);
         int yPos = GET_Y_LPARAM(lParam);
-        int id = (yPos/CELL_SIZE) * GRID_WIDTH + (xPos/CELL_SIZE);
-        cells[id] = (cells[id]&~FLAG_FLAG) | (((cells[id]&FLAG_FLAG)^FLAG_FLAG)&FLAG_FLAG);
-        SendMessageW(GetDlgItem(hwnd, id), STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[MineValueToBITMAPIndex(cells[id])]);
+        if (yPos >= 80) {
+            int id = ((yPos-80)/CELL_SIZE) * GRID_WIDTH + (xPos/CELL_SIZE);
+            if (!(cells[id]&FLAG_OPEN)) {
+                cells[id] = (cells[id]&~FLAG_FLAG) | (((cells[id]&FLAG_FLAG)^FLAG_FLAG)&FLAG_FLAG);
+                SendMessageW(GetDlgItem(hwnd, id), STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[MineValueToBITMAPIndex(cells[id])]);
+            }
+        }
     }
 }
 
@@ -278,9 +295,8 @@ void OnLeftClick(HWND hwnd, LPARAM lParam) {
     if (playing) {
         int xPos = GET_X_LPARAM(lParam);
         int yPos = GET_Y_LPARAM(lParam);
-        int id = (yPos/CELL_SIZE) * GRID_WIDTH + (xPos/CELL_SIZE);
-        if (!(cells[id]&FLAG_OPEN)) {
-            OpenCell(xPos/CELL_SIZE,yPos/CELL_SIZE,hwnd);
+        if (yPos >= 80) {
+            OpenCell(xPos/CELL_SIZE,(yPos-80)/CELL_SIZE,hwnd);
         }
     }
 }
@@ -320,6 +336,7 @@ void OpenCell(int x, int y, HWND hwnd) {
 void OnLose(HWND hwnd) {
     playing = FALSE;
     int mine_count = (currentMode & 0x0000FF);
+    SendMessageW(ResetButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[15]);
     for (int i = 0; i < mine_count; i++) {
         SendMessageW(GetDlgItem(hwnd, mines[i]), STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[9]);
     }
@@ -327,4 +344,5 @@ void OnLose(HWND hwnd) {
 
 void OnWin(HWND hwnd) {
     playing = FALSE;
+    SendMessageW(ResetButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[14]);
 }
